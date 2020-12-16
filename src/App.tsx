@@ -94,16 +94,15 @@ function Wave(): JSX.Element {
                 onChange={(e): void => setAmplitude(+e.currentTarget.value)}
               />
               <label htmlFor="phase" className="text-dark mr-2">
-                Phase (deg/rad): {Math.round((phase * 180) / Math.PI)}° /{" "}
-                {Math.ceil((phase / Math.PI + Number.EPSILON) * 1000) / 1000} x
-                π
+                Phase (deg/rad): {Math.round(phase * Math.PI * (180 / Math.PI))}
+                ° / {phase} x π
               </label>
               <input
                 id="phase"
                 type="range"
                 min="0"
-                max={2 * Math.PI}
-                step={Math.PI / 180}
+                max="2"
+                step="0.01"
                 value={phase}
                 onChange={(e): void => setPhase(+e.currentTarget.value)}
               />

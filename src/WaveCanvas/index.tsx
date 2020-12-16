@@ -92,6 +92,8 @@ function WaveCanvas({
       }
 
       waves.forEach(({ amplitude, styles, wavelength, phase }) => {
+        const phaseRad = phase * Math.PI;
+
         context.beginPath();
 
         context.lineWidth = styles?.lineWidth || DEFAULTS.waveLineWidth;
@@ -104,7 +106,7 @@ function WaveCanvas({
               Math.sin(
                 x * 2 * Math.PI * (wavelength / width) * xScale -
                   animationPhase -
-                  phase
+                  phaseRad
               );
 
           context.lineTo(x, y);
@@ -117,13 +119,14 @@ function WaveCanvas({
         context.closePath();
       });
 
+      //TODO:  Update this for multiple waves
       if (showWaveSummation && waves.length === 2) {
         const a1 = waves[0].amplitude;
         const a2 = waves[1].amplitude;
         const f1 = waves[0].wavelength;
         const f2 = waves[1].wavelength;
-        const p1 = waves[0].phase;
-        const p2 = waves[1].phase;
+        const p1 = waves[0].phase * Math.PI;
+        const p2 = waves[1].phase * Math.PI;
 
         context.beginPath();
         context.lineWidth =
