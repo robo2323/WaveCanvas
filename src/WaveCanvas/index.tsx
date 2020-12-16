@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "@qctrl/elements-css/dist/elements.min.css";
 
 const DEFAULTS = {
@@ -19,30 +19,38 @@ export interface LineStyles {
 
 export interface Wave {
   amplitude: number;
-  frequency: number;
+  wavelength: number;
   phase: number;
   styles?: LineStyles;
 }
 
 export interface WaveCanvasProps {
   waves: Wave[];
+  xScale?: number;
   axisStyles?: { hideAxis?: boolean } & LineStyles;
   phaseAnimationFactor?: number;
-  waveSummationStyles?: {
-    showSummation?: boolean;
-    overlay?: boolean;
-  } & LineStyles;
+  showWaveSummation?: boolean;
+  waveSummationStyles?: LineStyles;
   animatePhase?: boolean;
+  canvasHeight?: number;
 }
 
 function WaveCanvas({
   waves,
+  xScale = 10,
   axisStyles,
+  showWaveSummation = true,
   waveSummationStyles,
   animatePhase = true,
   phaseAnimationFactor = DEFAULTS.phaseAnimationFactor,
+  canvasHeight = 400,
 }: WaveCanvasProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [parentWidth, setParentWidth] = useState(0);
+
+  useEffect(() => {
+    setParentWidth(canvasRef?.current?.parentElement?.clientWidth || 0);
+  }, []);
 
   useEffect((): (() => void) => {
     const canvas = canvasRef.current;
@@ -60,10 +68,15 @@ function WaveCanvas({
 
       context.clearRect(0, 0, width, height);
 
-      const heightOffset =
-        waveSummationStyles?.showSummation && !waveSummationStyles.overlay
-          ? height / 3
-          : height / 2;
+      const canvasYDivision = showWaveSummation ? height / 4 : height / 2;
+
+      const graphHeight = canvasYDivision / 2;
+
+      const topGraphYOrigin = canvasYDivision;
+
+      const bottomGraphYOrigin = showWaveSummation
+        ? canvasYDivision * 3
+        : canvasYDivision;
 
       function drawAxis(hOffset: number): void {
         if (!context) return;
@@ -78,17 +91,20 @@ function WaveCanvas({
         context.closePath();
       }
 
-      waves.forEach(({ amplitude, styles, frequency, phase }) => {
+      waves.forEach(({ amplitude, styles, wavelength, phase }) => {
         context.beginPath();
 
         context.lineWidth = styles?.lineWidth || DEFAULTS.waveLineWidth;
 
         for (let x = 0; x < width; x++) {
           const y =
-            heightOffset +
-            amplitude *
+            bottomGraphYOrigin +
+            graphHeight *
+              amplitude *
               Math.sin(
-                x * 2 * Math.PI * (frequency / width) - animationPhase - phase
+                x * 2 * Math.PI * (wavelength / width) * xScale -
+                  animationPhase -
+                  phase
               );
 
           context.lineTo(x, y);
@@ -101,46 +117,49 @@ function WaveCanvas({
         context.closePath();
       });
 
-      if (waveSummationStyles?.showSummation && waves.length === 2) {
+      if (showWaveSummation && waves.length === 2) {
         const a1 = waves[0].amplitude;
         const a2 = waves[1].amplitude;
-        const f1 = waves[0].frequency;
-        const f2 = waves[1].frequency;
+        const f1 = waves[0].wavelength;
+        const f2 = waves[1].wavelength;
         const p1 = waves[0].phase;
         const p2 = waves[1].phase;
 
-        const { dashArray, lineColor, lineWidth } = waveSummationStyles;
-
         context.beginPath();
-        context.lineWidth = lineWidth || DEFAULTS.summationLineWidth;
-
-        const offset = waveSummationStyles.overlay
-          ? heightOffset
-          : heightOffset * 2;
+        context.lineWidth =
+          waveSummationStyles?.lineWidth || DEFAULTS.summationLineWidth;
 
         for (let x = 0; x < width; x++) {
           const y =
-            offset +
-            a1 *
-              Math.sin(x * 2 * Math.PI * (f1 / width) - animationPhase - p1) +
-            a2 * Math.sin(x * 2 * Math.PI * (f2 / width) - animationPhase - p2);
+            topGraphYOrigin +
+            graphHeight *
+              a1 *
+              Math.sin(
+                x * 2 * Math.PI * (f1 / width) * xScale - animationPhase - p1
+              ) +
+            graphHeight *
+              a2 *
+              Math.sin(
+                x * 2 * Math.PI * (f2 / width) * xScale - animationPhase - p2
+              );
 
           context.lineTo(x, y);
         }
 
-        context.strokeStyle = lineColor || DEFAULTS.summationLineColor;
-        context.setLineDash(dashArray || []);
+        context.strokeStyle =
+          waveSummationStyles?.lineColor || DEFAULTS.summationLineColor;
+        context.setLineDash(waveSummationStyles?.dashArray || []);
         context.stroke();
 
         context.closePath();
 
-        if (!waveSummationStyles.overlay && !axisStyles?.hideAxis) {
-          drawAxis(offset);
+        if (!axisStyles?.hideAxis) {
+          drawAxis(topGraphYOrigin);
         }
       }
 
       if (!axisStyles?.hideAxis) {
-        drawAxis(heightOffset);
+        drawAxis(bottomGraphYOrigin);
       }
 
       if (animatePhase) {
@@ -162,20 +181,15 @@ function WaveCanvas({
     axisStyles?.lineColor,
     axisStyles?.lineWidth,
     phaseAnimationFactor,
-    waveSummationStyles,
+    showWaveSummation,
+    waveSummationStyles?.dashArray,
+    waveSummationStyles?.lineColor,
+    waveSummationStyles?.lineWidth,
     waves,
+    xScale,
   ]);
 
-  return (
-    <div className="flex items-center">
-      <canvas
-        ref={canvasRef}
-        //TODO: Set the following from the parent div
-        width="800"
-        height="600"
-      />
-    </div>
-  );
+  return <canvas ref={canvasRef} width={parentWidth} height={canvasHeight} />;
 }
 
 export default WaveCanvas;
