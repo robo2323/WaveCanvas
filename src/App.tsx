@@ -55,20 +55,25 @@ function Wave(): JSX.Element {
                 styles: { lineColor: "#680ce9" },
               },
             ]}
-            animatePhase={animatePhase}
+            animate={animatePhase}
             phaseAnimationFactor={phaseAnimationFactor}
           />
         ) : (
           <>
             <WaveCanvas
               waves={waves}
-              animatePhase={animatePhase}
+              animate={animatePhase}
               phaseAnimationFactor={phaseAnimationFactor}
               showWaveSummation={showSummation}
               xScale={xScale}
             />
 
-            <div className="flex flex-col w-full space-y-4">
+            <div
+              className="flex flex-col w-full space-y-4"
+              onMouseDown={() => setAnimatePhase(false)}
+              onMouseUp={() => setAnimatePhase(true)}
+              onMouseLeave={() => setAnimatePhase(true)}
+            >
               <label htmlFor="wavelength" className="text-dark mr-2">
                 Wavelength: {wavelength}
               </label>
@@ -94,14 +99,15 @@ function Wave(): JSX.Element {
                 onChange={(e): void => setAmplitude(+e.currentTarget.value)}
               />
               <label htmlFor="phase" className="text-dark mr-2">
-                Phase (deg/rad): {Math.round(phase * Math.PI * (180 / Math.PI))}
-                ° / {phase} x π
+                Phase (deg/rad):{" "}
+                {Math.round(phase * 2 * Math.PI * (180 / Math.PI))}° / {phase} x
+                2π
               </label>
               <input
                 id="phase"
                 type="range"
                 min="0"
-                max="2"
+                max="1"
                 step="0.01"
                 value={phase}
                 onChange={(e): void => setPhase(+e.currentTarget.value)}
@@ -217,7 +223,7 @@ function Wave(): JSX.Element {
                 value={targetPhase}
                 onChange={(e) => setTargetPhase(+e.currentTarget.value)}
               />{" "}
-              x π
+              x 2π
             </label>
           </div>
         </div>

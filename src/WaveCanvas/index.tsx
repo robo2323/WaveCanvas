@@ -31,21 +31,26 @@ export interface WaveCanvasProps {
   phaseAnimationFactor?: number;
   showWaveSummation?: boolean;
   waveSummationStyles?: LineStyles;
-  animatePhase?: boolean;
+  animate?: boolean;
   canvasHeight?: number;
+}
+
+function pi2(value = 1): number {
+  return value * 2 * Math.PI;
 }
 
 function WaveCanvas({
   waves,
-  xScale = 10,
+  xScale = 8,
   axisStyles,
   showWaveSummation = true,
   waveSummationStyles,
-  animatePhase = true,
+  animate = true,
   phaseAnimationFactor = DEFAULTS.phaseAnimationFactor,
   canvasHeight = 400,
 }: WaveCanvasProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationPhaseRef = useRef(0);
   const [parentWidth, setParentWidth] = useState(0);
 
   useEffect(() => {
@@ -59,7 +64,7 @@ function WaveCanvas({
 
     let requestId: number;
 
-    let animationPhase = 0;
+    let animationPhase = animationPhaseRef.current;
 
     function render(): void {
       if (!context) return;
@@ -92,7 +97,7 @@ function WaveCanvas({
       }
 
       waves.forEach(({ amplitude, styles, wavelength, phase }) => {
-        const phaseRad = phase * Math.PI;
+        const phaseRad = pi2(phase);
 
         context.beginPath();
 
@@ -104,7 +109,7 @@ function WaveCanvas({
             graphHeight *
               amplitude *
               Math.sin(
-                x * 2 * Math.PI * (wavelength / width) * xScale -
+                pi2(x) * (wavelength / width) * xScale -
                   animationPhase -
                   phaseRad
               );
@@ -125,8 +130,8 @@ function WaveCanvas({
         const a2 = waves[1].amplitude;
         const f1 = waves[0].wavelength;
         const f2 = waves[1].wavelength;
-        const p1 = waves[0].phase * Math.PI;
-        const p2 = waves[1].phase * Math.PI;
+        const p1 = pi2(waves[0].phase);
+        const p2 = pi2(waves[1].phase);
 
         context.beginPath();
         context.lineWidth =
@@ -137,14 +142,10 @@ function WaveCanvas({
             topGraphYOrigin +
             graphHeight *
               a1 *
-              Math.sin(
-                x * 2 * Math.PI * (f1 / width) * xScale - animationPhase - p1
-              ) +
+              Math.sin(pi2(x) * (f1 / width) * xScale - animationPhase - p1) +
             graphHeight *
               a2 *
-              Math.sin(
-                x * 2 * Math.PI * (f2 / width) * xScale - animationPhase - p2
-              );
+              Math.sin(pi2(x) * (f2 / width) * xScale - animationPhase - p2);
 
           context.lineTo(x, y);
         }
@@ -165,9 +166,11 @@ function WaveCanvas({
         drawAxis(bottomGraphYOrigin);
       }
 
-      if (animatePhase) {
+      if (animate) {
         animationPhase =
           animationPhase < width ? animationPhase + phaseAnimationFactor : 0;
+          
+        animationPhaseRef.current = animationPhase;
       }
       requestId = requestAnimationFrame(render);
     }
@@ -178,7 +181,7 @@ function WaveCanvas({
       if (requestId) cancelAnimationFrame(requestId);
     };
   }, [
-    animatePhase,
+    animate,
     axisStyles?.dashArray,
     axisStyles?.hideAxis,
     axisStyles?.lineColor,
