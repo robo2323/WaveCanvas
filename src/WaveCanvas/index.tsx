@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react";
-import '@qctrl/elements-css/dist/elements.min.css'
+import React, { useEffect, useRef, useState } from "react";
+import "@qctrl/elements-css/dist/elements.min.css";
 
 const DEFAULTS = {
   waveLineWidth: 4,
@@ -8,33 +8,54 @@ const DEFAULTS = {
   axisLineColor: "rgba(0,0,0,0.4)",
   summationLineWidth: 4,
   summationLineColor: "rgba(144, 201, 247,1)",
-  phaseAnimationFactor: 0.1
-}
+  phaseAnimationFactor: 0.1,
+};
 
 export interface LineStyles {
   lineColor?: string;
   lineWidth?: number;
-  dashArray?: number[]
-};
+  dashArray?: number[];
+}
 
 export interface Wave {
   amplitude: number;
-  frequency: number;
+  wavelength: number;
   phase: number;
   styles?: LineStyles;
 }
 
 export interface WaveCanvasProps {
   waves: Wave[];
-  axisStyles?: { hideAxis?: boolean; } & LineStyles;
-  phaseAnimationFactor?: number
-  waveSummationStyles?: { showSummation?: boolean; overlay?: boolean } & LineStyles;
-  animatePhase?: boolean
+  xScale?: number;
+  axisStyles?: { hideAxis?: boolean } & LineStyles;
+  phaseAnimationFactor?: number;
+  showWaveSummation?: boolean;
+  waveSummationStyles?: LineStyles;
+  animate?: boolean;
+  canvasHeight?: number;
 }
 
+function pi2(value = 1): number {
+  return value * 2 * Math.PI;
+}
 
-function WaveCanvas({ waves, axisStyles, waveSummationStyles, animatePhase = true, phaseAnimationFactor = DEFAULTS.phaseAnimationFactor }: WaveCanvasProps): JSX.Element {
+function WaveCanvas({
+  waves,
+  xScale = 8,
+  axisStyles,
+  showWaveSummation = true,
+  waveSummationStyles,
+  animate = true,
+  phaseAnimationFactor = DEFAULTS.phaseAnimationFactor,
+  canvasHeight = 400,
+}: WaveCanvasProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationPhaseRef = useRef(0);
+  const [parentWidth, setParentWidth] = useState(0);
+
+  useEffect(() => {
+    setParentWidth(canvasRef?.current?.parentElement?.clientWidth || 0);
+  }, []);
 
   useEffect((): (() => void) => {
     const canvas = canvasRef.current;
@@ -43,7 +64,7 @@ function WaveCanvas({ waves, axisStyles, waveSummationStyles, animatePhase = tru
 
     let requestId: number;
 
-    let animationPhase = 0
+    let animationPhase = animationPhaseRef.current;
 
     function render(): void {
       if (!context) return;
@@ -52,10 +73,18 @@ function WaveCanvas({ waves, axisStyles, waveSummationStyles, animatePhase = tru
 
       context.clearRect(0, 0, width, height);
 
-      const heightOffset = waveSummationStyles?.showSummation && !waveSummationStyles.overlay ? height / 3 : height / 2;
+      const canvasYDivision = showWaveSummation ? height / 4 : height / 2;
+
+      const graphHeight = canvasYDivision / 2;
+
+      const topGraphYOrigin = canvasYDivision;
+
+      const bottomGraphYOrigin = showWaveSummation
+        ? canvasYDivision * 3
+        : canvasYDivision;
 
       function drawAxis(hOffset: number): void {
-        if (!context) return
+        if (!context) return;
         context.beginPath();
         context.moveTo(0, hOffset);
         context.lineWidth = axisStyles?.lineWidth || DEFAULTS.axisLineWidth;
@@ -67,7 +96,8 @@ function WaveCanvas({ waves, axisStyles, waveSummationStyles, animatePhase = tru
         context.closePath();
       }
 
-      waves.forEach(({ amplitude, styles, frequency, phase }) => {
+      waves.forEach(({ amplitude, styles, wavelength, phase }) => {
+        const phaseRad = pi2(phase);
 
         context.beginPath();
 
@@ -75,9 +105,14 @@ function WaveCanvas({ waves, axisStyles, waveSummationStyles, animatePhase = tru
 
         for (let x = 0; x < width; x++) {
           const y =
-            heightOffset +
-            amplitude *
-            Math.sin(x * 2 * Math.PI * (frequency / width) - animationPhase - (phase));
+            bottomGraphYOrigin +
+            graphHeight *
+              amplitude *
+              Math.sin(
+                pi2(x) * (wavelength / width) * xScale -
+                  animationPhase -
+                  phaseRad
+              );
 
           context.lineTo(x, y);
         }
@@ -87,80 +122,80 @@ function WaveCanvas({ waves, axisStyles, waveSummationStyles, animatePhase = tru
         context.stroke();
 
         context.closePath();
+      });
 
-      })
-
-      if (waveSummationStyles?.showSummation && waves.length === 2) {
-        const a1 = waves[0].amplitude
-        const a2 = waves[1].amplitude
-        const f1 = waves[0].frequency
-        const f2 = waves[1].frequency
-        const p1 = waves[0].phase
-        const p2 = waves[1].phase
-
-        const { dashArray, lineColor, lineWidth } = waveSummationStyles
+      //TODO:  Update this for multiple waves
+      if (showWaveSummation && waves.length === 2) {
+        const a1 = waves[0].amplitude;
+        const a2 = waves[1].amplitude;
+        const f1 = waves[0].wavelength;
+        const f2 = waves[1].wavelength;
+        const p1 = pi2(waves[0].phase);
+        const p2 = pi2(waves[1].phase);
 
         context.beginPath();
-        context.lineWidth = lineWidth || DEFAULTS.summationLineWidth;
-
-        const offset = waveSummationStyles.overlay ? heightOffset : heightOffset * 2
+        context.lineWidth =
+          waveSummationStyles?.lineWidth || DEFAULTS.summationLineWidth;
 
         for (let x = 0; x < width; x++) {
           const y =
-            offset +
-            (a1 *
-              Math.sin(x * 2 * Math.PI * (f1 / width) - animationPhase - p1)) + (
+            topGraphYOrigin +
+            graphHeight *
+              a1 *
+              Math.sin(pi2(x) * (f1 / width) * xScale - animationPhase - p1) +
+            graphHeight *
               a2 *
-              Math.sin(x * 2 * Math.PI * (f2 / width) - animationPhase - p2));
+              Math.sin(pi2(x) * (f2 / width) * xScale - animationPhase - p2);
 
           context.lineTo(x, y);
         }
 
-        context.strokeStyle = lineColor || DEFAULTS.summationLineColor;
-        context.setLineDash(dashArray || []);
+        context.strokeStyle =
+          waveSummationStyles?.lineColor || DEFAULTS.summationLineColor;
+        context.setLineDash(waveSummationStyles?.dashArray || []);
         context.stroke();
 
         context.closePath();
 
-        if (!waveSummationStyles.overlay && !axisStyles?.hideAxis) {
-          drawAxis(offset)
-       }
+        if (!axisStyles?.hideAxis) {
+          drawAxis(topGraphYOrigin);
+        }
       }
 
       if (!axisStyles?.hideAxis) {
-        drawAxis(heightOffset)
+        drawAxis(bottomGraphYOrigin);
       }
 
-      if (animatePhase) {
-        animationPhase = animationPhase < width ? animationPhase + phaseAnimationFactor : 0;
+      if (animate) {
+        animationPhase =
+          animationPhase < width ? animationPhase + phaseAnimationFactor : 0;
+          
+        animationPhaseRef.current = animationPhase;
       }
-
       requestId = requestAnimationFrame(render);
     }
 
     render();
 
     return function cleanup(): void {
-      cancelAnimationFrame(requestId);
+      if (requestId) cancelAnimationFrame(requestId);
     };
-  }, [animatePhase, axisStyles?.dashArray, axisStyles?.hideAxis, axisStyles?.lineColor, axisStyles?.lineWidth, phaseAnimationFactor, waveSummationStyles, waves]);
+  }, [
+    animate,
+    axisStyles?.dashArray,
+    axisStyles?.hideAxis,
+    axisStyles?.lineColor,
+    axisStyles?.lineWidth,
+    phaseAnimationFactor,
+    showWaveSummation,
+    waveSummationStyles?.dashArray,
+    waveSummationStyles?.lineColor,
+    waveSummationStyles?.lineWidth,
+    waves,
+    xScale,
+  ]);
 
-  return (
-    <div className="flex items-center">
-      <div className="h-full flex flex-col justify-around mr-5">
-        <div className="text-dark">Interactive wave and target wave: </div>
-        <div className="text-dark">Summation of the two waves: </div>
-      </div>
-      <canvas
-        ref={canvasRef}
-        //TODO: Set the following from the parent div
-        width="800"
-        height="600"
-      />
-
-    </div>
-
-  );
+  return <canvas ref={canvasRef} width={parentWidth} height={canvasHeight} />;
 }
 
 export default WaveCanvas;
